@@ -1,1 +1,0 @@
-### Keep test images here
