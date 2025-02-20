@@ -5,7 +5,7 @@ import torch.nn as nn
 
 from timm.models.efficientnet import EfficientNet
 from timm.models.efficientnet import decode_arch_def, round_channels, default_cfgs
-from timm.models.layers.activations import Swish
+from timm.layers.activations import Swish
 
 from ._base import EncoderMixin
 
@@ -158,21 +158,20 @@ class EfficientNetLiteEncoder(EfficientNetBaseEncoder):
 
 def prepare_settings(settings):
     return {
-        "mean": settings["mean"],
-        "std": settings["std"],
-        "url": settings["url"],
+        "mean": settings.mean,
+        "std": settings.std,
+        "url": settings.url,
         "input_range": (0, 1),
         "input_space": "RGB",
     }
-
 
 timm_efficientnet_encoders = {
     "timm-efficientnet-b0": {
         "encoder": EfficientNetEncoder,
         "pretrained_settings": {
-            "imagenet": prepare_settings(default_cfgs["tf_efficientnet_b0"]),
-            "advprop": prepare_settings(default_cfgs["tf_efficientnet_b0_ap"]),
-            "noisy-student": prepare_settings(default_cfgs["tf_efficientnet_b0_ns"]),
+            "imagenet": prepare_settings(default_cfgs["tf_efficientnet_b0"].cfgs['in1k']),
+            "advprop": prepare_settings(default_cfgs["tf_efficientnet_b0"].cfgs['ap_in1k']),
+            "noisy-student": prepare_settings(default_cfgs["tf_efficientnet_b0"].cfgs['ns_jft_in1k']),
         },
         "params": {
             "out_channels": (3, 32, 24, 40, 112, 320),
@@ -182,6 +181,7 @@ timm_efficientnet_encoders = {
             "drop_rate": 0.2,
         },
     },
+    '''
     "timm-efficientnet-b1": {
         "encoder": EfficientNetEncoder,
         "pretrained_settings": {
@@ -272,12 +272,16 @@ timm_efficientnet_encoders = {
             "drop_rate": 0.5,
         },
     },
+    '''
     "timm-efficientnet-b7": {
         "encoder": EfficientNetEncoder,
         "pretrained_settings": {
-            "imagenet": prepare_settings(default_cfgs["tf_efficientnet_b7"]),
-            "advprop": prepare_settings(default_cfgs["tf_efficientnet_b7_ap"]),
-            "noisy-student": prepare_settings(default_cfgs["tf_efficientnet_b7_ns"]),
+            # Changes: Pretrained models now differently available.
+            # Available pretraining-sets: 'ns_jft_in1k', 'ap_in1k', 'ra_in1k', 'aa_in1k'
+            # ns: noisy student, in1k: ImageNet, ap: advProp, ra: rand augment, aa:uto augment
+            "imagenet": prepare_settings(default_cfgs["tf_efficientnet_b7"].cfgs["aa_in1k"]),
+            "advprop": prepare_settings(default_cfgs["tf_efficientnet_b7"].cfgs["ap_in1k"]),
+            "noisy-student": prepare_settings(default_cfgs["tf_efficientnet_b7"].cfgs["ns_jft_in1k"]),
         },
         "params": {
             "out_channels": (3, 64, 48, 80, 224, 640),
@@ -287,6 +291,8 @@ timm_efficientnet_encoders = {
             "drop_rate": 0.5,
         },
     },
+}
+'''
     "timm-efficientnet-b8": {
         "encoder": EfficientNetEncoder,
         "pretrained_settings": {
@@ -380,3 +386,4 @@ timm_efficientnet_encoders = {
         },
     },
 }
+'''

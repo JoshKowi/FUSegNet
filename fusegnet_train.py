@@ -182,8 +182,8 @@ print('No. of training images: ', len(list_IDs_test))
 BASE_MODEL = 'FuSegNet'
 ENCODER = 'efficientnet-b7'
 ENCODER_WEIGHTS = 'imagenet'
-BATCH_SIZE = 2 
-IMAGE_SIZE = 224 # height and width
+BATCH_SIZE = 8
+IMAGE_SIZE = 512 # height and width
 n_classes = 1 
 ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
