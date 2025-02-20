@@ -6,7 +6,7 @@
 *__pycache__*
 
 # images
-dataset/*
+
 
 # checkpoints and models
 checkpoints/*
