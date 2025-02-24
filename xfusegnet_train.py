@@ -150,11 +150,11 @@ def get_preprocessing(preprocessing_fn):
 """## Split dataset"""
 
 #%% Load dataset
-x_train_dir = x_valid_dir = 'dataset/train/images'
-y_train_dir = y_valid_dir = 'dataset/train/labels'
+x_train_dir = x_valid_dir = 'dataset_fuseg/train/images'
+y_train_dir = y_valid_dir = 'dataset_fuseg/train/labels'
 
-x_test_dir = 'dataset/test/images'
-y_test_dir = 'dataset/test/labels'
+x_test_dir = 'dataset_fuseg/test/images'
+y_test_dir = 'dataset_fuseg/test/labels'
 
 names = os.listdir(x_train_dir)
 
@@ -174,7 +174,7 @@ print('No. of test images:', len(list_IDs_test))
 BASE_MODEL = 'xFUSegNet'
 ENCODER = 'efficientnet-b7'
 ENCODER_WEIGHTS = 'imagenet'
-BATCH_SIZE = 2 
+BATCH_SIZE = 8 
 n_classes = 1 
 ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

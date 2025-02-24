@@ -6,7 +6,13 @@
 *__pycache__*
 
 # images
-
+dataset/*
+data_backup/*
+dataset_fuseg/*
 
 # checkpoints and models
 checkpoints/*
+plots/*
+
+# hpc-scripts
+scripts/*
