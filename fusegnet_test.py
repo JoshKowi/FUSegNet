@@ -160,7 +160,7 @@ list_IDs_test = os.listdir(x_test_dir)
 
 #%% Parameters
 """## Parameters"""
-ENCODER = 'efficientnet-b7'
+ENCODER = 'efficientnet-b0'
 ENCODER_WEIGHTS = 'imagenet'
 ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 n_classes = 1 
@@ -168,13 +168,19 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 LR = 0.0001 # learning rate
 WEIGHT_DECAY = 1e-5
 TO_CATEGORICAL = False
-RAW_PREDICTION = False # if true, then stores raw predictions (i.e. before applying threshold)
+RAW_PREDICTION = True # if true, then stores raw predictions (i.e. before applying threshold)
 
 #%% Enter name of the model that will be loaded
-model_name = 'Unet_pscsev1_efficientnet-b7_2023-02-28_10-05-44' #'>>>>>>>>>>>>>>>>Give name<<<<<<<<<<<<<<<<<<<<<<'
+model_name = 'FuSegNet_efficientnet-b0_2025-02-20_13-48-33' #'>>>>>>>>>>>>>>>>Give name<<<<<<<<<<<<<<<<<<<<<<'
 print(model_name)
 
 """# Build model"""
+
+"""Create Metrics"""
+metrics = [
+    metrics.IoU(threshold=0.5),
+    metrics.Fscore(threshold=0.5),
+]
 
 #%%
 import ssl
@@ -249,7 +255,12 @@ raw_pred = []
 
 # Save directory
 save_dir_pred = 'predictions/' + model_name
+if RAW_PREDICTION:
+    save_dir_raw = save_dir_pred + '/raw'
+    if not os.path.exists(save_dir_raw): os.makedirs(save_dir_raw)
+    save_dir_pred += '/masked'
 if not os.path.exists(save_dir_pred): os.makedirs(save_dir_pred)
+
 
 # Create dataframe to store records
 df = pd.DataFrame(index=[], columns = [
@@ -279,7 +290,10 @@ for i in range(len(list_IDs_test)):
     pred = pr_mask.squeeze().cpu().numpy()
 
     # Save raw prediction
-    if RAW_PREDICTION: raw_pred.append(pred)
+    if RAW_PREDICTION:
+        raw_pred.append(pred)
+        output_raw = Image.fromarray((np.squeeze(pred) * 255).astype(np.uint8))
+        output_raw.save(os.path.join(save_dir_raw, list_IDs_test[i]))
 
     # Modify prediction based on threshold 
     pred = (pred >= threshold) * 1
@@ -315,17 +329,16 @@ for i in range(len(list_IDs_test)):
 
     # Add to dataframe
     tmp = pd.Series([name, acc, sp, iou, p, r, dice], index=['Name', 'Accuracy', 'Specificity', 'iou', 'Precision', 'Recall', 'Dice'])
-    df = df.append(tmp, ignore_index = True)
-    df.to_csv(os.path.join(save_dir_pred, 'result.csv'), index=False)
+    tmp_df = tmp.to_frame().T
+    df = pd.concat([df, tmp_df], ignore_index=True)
+df.to_csv(os.path.join(save_dir_pred, 'result_per_image.csv'), index=False)
 
 print("Mean Accuracy: ", df["Accuracy"].mean())
 print("Mean Specificity: ", df["Specificity"].mean())
 print('Mean IoU: ', df['iou'].mean())
 print("Mean precision: ", df["Precision"].mean())
 print("Mean recall: ", df["Recall"].mean())
-print("Mean dice: ", df["Dice"].mean())    
-
-raw_pred = np.array(raw_pred)
+print("Mean dice: ", df["Dice"].mean())
 
 # Data-based evaluation
 sacc = ((stp + stn)/(stp + stn + sfn + sfp))*100  
@@ -344,13 +357,13 @@ print('Data-based dice:', sdice)
 
 tmp2 = pd.Series([name, 'best_model', sacc, ssp, siou, sprecision, srecall, sdice, stp, stn, sfp, sfn], 
                 index=['Name', 'type', 'Accuracy', 'Specificity', 'iou', 'Precision', 'Recall', 'Dice', 'stp', 'stn', 'sfp', 'sfn'])
-df_data = df_data.append(tmp2, ignore_index = True)
+tmp2_df = tmp2.to_frame().T
+df_data = pd.concat([df_data, tmp2_df], ignore_index=True)
 
-
-df_data.to_csv(os.path.join('predictions',  model_name + '_data_based_result.csv'), index=False)
+df_data.to_csv(os.path.join(save_dir_pred, 'result_data_based.csv'), index=False)
 
 
 # Save raw prediction in .mat format
 if RAW_PREDICTION:
-  raw_pred = np.array(raw_pred)
-  sio.savemat(os.path.join(save_dir_pred, 'raw_pred.mat'), {'p': raw_pred}, do_compression=True)
+    raw_pred = np.array(raw_pred)
+    sio.savemat(os.path.join(save_dir_pred, 'raw_pred.mat'), {'p': raw_pred}, do_compression=True)

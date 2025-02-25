@@ -12,6 +12,7 @@ dataset_fuseg/*
 # checkpoints and models
 checkpoints/*
 plots/*
+predictions/*
 
 # hpc-scripts
 scripts/*
