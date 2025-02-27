@@ -145,8 +145,10 @@ def get_preprocessing(preprocessing_fn):
 """## Split dataset"""
 
 #%% Load dataset
-x_test_dir = 'dataset/test/images'
-y_test_dir = 'dataset/test/labels'
+x_test_dir = 'dataset_fuseg/test/images'
+y_test_dir = 'dataset_fuseg/test/labels'
+
+DATASET = 'fuseg'
 
 list_IDs_test = os.listdir(x_test_dir)
 
@@ -163,7 +165,7 @@ TO_CATEGORICAL = False
 RAW_PREDICTION = False # if true, then stores raw predictions (i.e. before applying threshold)
 
 #%% Enter name of the model that will be loaded
-model_name = 'Unet_scse_efficientnet-b7_2023-01-20_20-13-27' #'>>>>>>>>>>>>>>>>Give name<<<<<<<<<<<<<<<<<<<<<<'
+model_name = 'xFUSegNet_efficientnet-b7_2025-02-21_17-08-21' #'>>>>>>>>>>>>>>>>Give name<<<<<<<<<<<<<<<<<<<<<<'
 print(model_name)
 
 """# Build model"""
@@ -286,7 +288,7 @@ for m_name in models:
 print('\n\nGenerating output taking average of all raw predictions')
 
 # Save directory
-save_dir_pred = 'predictions/' + model_name + '_avg'
+save_dir_pred = 'predictions/' + model_name + '/' + DATASET + '/' + 'avg'
 if not os.path.exists(save_dir_pred): os.makedirs(save_dir_pred)
 
 iter_test_dataloader = iter(test_dataloader)    
@@ -343,7 +345,7 @@ threshold_sum = int(np.ceil(len(store_pred)/2)) # considering odd numbers of mod
 # Finally, the value of that pixel at (x,y) will be set to 1.
 
 # Save directory
-save_dir_pred = 'predictions/' + model_name + '_voting'
+save_dir_pred = 'predictions/' + model_name + '/' + DATASET + '/' + 'voting'
 if not os.path.exists(save_dir_pred): os.makedirs(save_dir_pred)
 
 iter_test_dataloader = iter(test_dataloader)    
