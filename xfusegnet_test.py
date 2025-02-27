@@ -8,6 +8,8 @@ import segmentation_models_pytorch as smp
 from segmentation_models_pytorch.utils import metrics, losses, base
 import os
 import pickle
+import pandas as pd
+from sklearn.metrics import confusion_matrix
 
 """## Dataloader"""
 
@@ -178,7 +180,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 #%% Inference
 from PIL import Image
 
-RAW_PREDICTION = False # if true, then stores raw predictions (i.e. before applying threshold)
+RAW_PREDICTION = True # if true, then stores raw predictions (i.e. before applying threshold)
 save_pred = True
 verbose = False
 threshold = 0.5
@@ -268,7 +270,7 @@ for m_name in models:
     
         name = os.path.splitext(list_IDs_test[i])[0] # remove extension
     
-        image, gt_mask = next(iter_test_dataloader) # get image and mask as Tensors
+        image, _ = next(iter_test_dataloader) # get image and mask as Tensors
     
         # Note: Image shape: torch.Size([1, 3, 512, 512]) and mask shape: torch.Size([1, 1, 512, 512])
     
@@ -290,6 +292,16 @@ print('\n\nGenerating output taking average of all raw predictions')
 # Save directory
 save_dir_pred = 'predictions/' + model_name + '/' + DATASET + '/' + 'avg'
 if not os.path.exists(save_dir_pred): os.makedirs(save_dir_pred)
+
+# Create dataframe to store metrics per image
+df_avg = pd.DataFrame(index=[], columns = [
+    'Name', 'iou', 'Precision', 'Recall', 'Dice'], dtype='object')
+
+# Create dataframe to store data-based record over all images
+df_data_avg = pd.DataFrame(index=[], columns = [
+    'Name', 'type', 'iou', 'Precision', 'Recall', 'Dice', 'stp', 'stn', 'sfp', 'sfn'], dtype='object')
+
+stp, stn, sfp, sfn = 0, 0, 0, 0
 
 iter_test_dataloader = iter(test_dataloader)    
     
@@ -318,6 +330,64 @@ for i in range(len(list_IDs_test)):
     if save_pred:
         output_im = Image.fromarray((np.squeeze(pred)*255 ).astype(np.uint8))
         output_im.save(os.path.join(save_dir_pred, list_IDs_test[i]))
+
+    # Calculate iou, precision, recall, and dice
+    flat_mask = np.squeeze(gt_mask).flatten()
+    flat_pred = np.squeeze(pred).flatten()
+
+    # Calculate tp, fp, tn, fn
+    if np.array_equal(flat_mask, flat_pred):
+        tn, fp, fn, tp = 0, 0, 0, len(flat_mask)
+    else:
+        tn, fp, fn, tp = confusion_matrix(flat_mask, flat_pred).ravel()
+
+    # Keep adding tp, tn, fp, and fn
+    stp += tp
+    stn += tn
+    sfp += fp
+    sfn += fn
+
+    # Calculate metrics
+    p = (tp / (tp + fp + ep)) * 100
+    r = (tp / (tp + fn + ep)) * 100
+    dice = (2 * tp / (2 * tp + fp + fn)) * 100
+    iou = (tp / (tp + fp + fn + ep)) * 100
+    print("Img # {:1s}, Image {:1s}: iou: {:3f}, p: {:3f}, r: {:3f}, dice: {:3f}".format(
+        str(i + 1), name, iou, p, r, dice))
+
+    # Add to dataframe
+    tmp = pd.Series([name, iou, p, r, dice],
+                    index=['Name', 'iou', 'Precision', 'Recall', 'Dice'])
+    tmp_df = tmp.to_frame().T
+    df_avg = pd.concat([df_avg, tmp_df], ignore_index=True)
+
+df_avg.to_csv(os.path.join(save_dir_pred, 'result_per_image.csv'), index=False)
+
+print("=================AVERAGE RESULTS=================")
+print("Mean Accuracy: ", df_avg["Accuracy"].mean())
+print("Mean Specificity: ", df_avg["Specificity"].mean())
+print('Mean IoU: ', df_avg['iou'].mean())
+print("Mean precision: ", df_avg["Precision"].mean())
+print("Mean recall: ", df_avg["Recall"].mean())
+print("Mean dice: ", df_avg["Dice"].mean())
+
+# Generate Data-Based Results
+siou = (stp/(stp + sfp + sfn + ep))*100
+sprecision = (stp/(stp + sfp + ep))*100
+srecall = (stp/(stp + sfn + ep))*100
+sdice = (2 * stp / (2 * stp + sfp + sfn))*100
+
+print('Data-based iou:', siou)
+print('Data-based precision:', sprecision)
+print('Data-based recall:', srecall)
+print('Data-based dice:', sdice)
+
+tmp2 = pd.Series([model_name, 'best_model', siou, sprecision, srecall, sdice, stp, stn, sfp, sfn],
+                index=['Name', 'type', 'iou', 'Precision', 'Recall', 'Dice', 'stp', 'stn', 'sfp', 'sfn'])
+tmp2_df = tmp2.to_frame().T
+df_data_avg = pd.concat([df_data_avg, tmp2_df], ignore_index=True)
+
+df_data_avg.to_csv(os.path.join(save_dir_pred, 'result_data_based.csv'), index=False)
 
 '--------------------------------- voting ------------------------------------'
 #%% Voting
@@ -348,6 +418,16 @@ threshold_sum = int(np.ceil(len(store_pred)/2)) # considering odd numbers of mod
 save_dir_pred = 'predictions/' + model_name + '/' + DATASET + '/' + 'voting'
 if not os.path.exists(save_dir_pred): os.makedirs(save_dir_pred)
 
+# Create dataframe to store metrics per image
+df = pd.DataFrame(index=[], columns = [
+    'Name', 'iou', 'Precision', 'Recall', 'Dice'], dtype='object')
+
+# Create dataframe to store data-based record over all images
+df_data = pd.DataFrame(index=[], columns = [
+    'Name', 'type', 'iou', 'Precision', 'Recall', 'Dice', 'stp', 'stn', 'sfp', 'sfn'], dtype='object')
+
+stp, stn, sfp, sfn = 0, 0, 0, 0
+
 iter_test_dataloader = iter(test_dataloader)    
     
 for i in range(len(list_IDs_test)):
@@ -376,3 +456,61 @@ for i in range(len(list_IDs_test)):
     if save_pred:
         output_im = Image.fromarray((np.squeeze(pred)*255 ).astype(np.uint8))
         output_im.save(os.path.join(save_dir_pred, list_IDs_test[i]))
+
+    # Calculate iou, precision, recall, and dice
+    flat_mask = np.squeeze(gt_mask).flatten()
+    flat_pred = np.squeeze(pred).flatten()
+
+    # Calculate tp, fp, tn, fn
+    if np.array_equal(flat_mask, flat_pred):
+        tn, fp, fn, tp = 0, 0, 0, len(flat_mask)
+    else:
+        tn, fp, fn, tp = confusion_matrix(flat_mask, flat_pred).ravel()
+
+    # Keep adding tp, tn, fp, and fn
+    stp += tp
+    stn += tn
+    sfp += fp
+    sfn += fn
+
+    # Calculate metrics
+    p = (tp / (tp + fp + ep)) * 100
+    r = (tp / (tp + fn + ep)) * 100
+    dice = (2 * tp / (2 * tp + fp + fn)) * 100
+    iou = (tp / (tp + fp + fn + ep)) * 100
+    print("Img # {:1s}, Image {:1s}: iou: {:3f}, p: {:3f}, r: {:3f}, dice: {:3f}".format(
+        str(i + 1), name, iou, p, r, dice))
+
+    # Add to dataframe
+    tmp = pd.Series([name, iou, p, r, dice],
+                    index=['Name', 'iou', 'Precision', 'Recall', 'Dice'])
+    tmp_df = tmp.to_frame().T
+    df = pd.concat([df_avg, tmp_df], ignore_index=True)
+
+df.to_csv(os.path.join(save_dir_pred, 'result_per_image.csv'), index=False)
+
+print("=================VOTING-RESULTS=================")
+print("Mean Accuracy: ", df_avg["Accuracy"].mean())
+print("Mean Specificity: ", df_avg["Specificity"].mean())
+print('Mean IoU: ', df_avg['iou'].mean())
+print("Mean precision: ", df_avg["Precision"].mean())
+print("Mean recall: ", df_avg["Recall"].mean())
+print("Mean dice: ", df_avg["Dice"].mean())
+
+# Generate Data-Based Results
+siou = (stp/(stp + sfp + sfn + ep))*100
+sprecision = (stp/(stp + sfp + ep))*100
+srecall = (stp/(stp + sfn + ep))*100
+sdice = (2 * stp / (2 * stp + sfp + sfn))*100
+
+print('Data-based iou:', siou)
+print('Data-based precision:', sprecision)
+print('Data-based recall:', srecall)
+print('Data-based dice:', sdice)
+
+tmp2 = pd.Series([model_name, 'best_model', siou, sprecision, srecall, sdice, stp, stn, sfp, sfn],
+                index=['Name', 'type', 'iou', 'Precision', 'Recall', 'Dice', 'stp', 'stn', 'sfp', 'sfn'])
+tmp2_df = tmp2.to_frame().T
+df_data = pd.concat([df_data_avg, tmp2_df], ignore_index=True)
+
+df_data.to_csv(os.path.join(save_dir_pred, 'result_data_based.csv'), index=False)
